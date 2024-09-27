@@ -178,14 +178,17 @@ def list_experiments(url: str, token: str) -> None:
         headers=headers,
     )
     
-    if response.status_code != 200:
-        print(response.text)
-        print(f"Failed get experiments information. Status code: {response.status_code}. {contact_message}")
+    try:
+        if response.status_code != 200:
+            print(response.text)
+            print(f"Failed get experiments information. Status code: {response.status_code}. {contact_message}")
+            return
+        
+        response_data = response.json()
+        print(response_data['summary'])
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}. {contact_message}")
         return
-    
-    response_data = response.json()
-    print(response_data['summary'])
-    return
 
 def send_post_request(url: str, name: str, email: str, token: str) -> Optional[requests.Response]:
     # Define the headers
