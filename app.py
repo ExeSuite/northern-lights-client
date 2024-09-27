@@ -169,6 +169,23 @@ def upload_fastq(url: str, token: str, name: str, fastq_dir: str, chunk_size: in
             n_uploaded_files += 1
     print(f"Upload FASTQ complete successfully ({n_uploaded_files}/{n_files}).")
 
+def list_experiments(url: str, token: str) -> None:
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+    response = requests.get(
+        url,
+        headers=headers,
+    )
+    
+    if response.status_code != 200:
+        print(response.text)
+        print(f"Failed get experiments information. Status code: {response.status_code}. {contact_message}")
+        return
+    
+    response_data = response.json()
+    print(response_data['summary'])
+    return
 
 def send_post_request(url: str, name: str, email: str, token: str) -> Optional[requests.Response]:
     # Define the headers
@@ -212,6 +229,8 @@ else:
             else f'{datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")}-{uuid.uuid4()}'
         )
         upload_fastq(url=f"{config['url']}/api/upload", token=config['key'], name=experiment_name, fastq_dir=args.fastq_dir)
+    if args.command.lower() == 'list':
+        list_experiments(url=f"{config['url']}/api/list", token=config['key'])
 
 
 #datasheet_s3_path = upload_fastq_to_s3(name, fastq_dir)
