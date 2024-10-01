@@ -4,13 +4,9 @@ import os
 import uuid
 
 import yaml
-import pandas as pd
 import requests
-import s3fs
 from tqdm import tqdm
-from typing import Optional
 
-fs = s3fs.S3FileSystem()
 
 contact_message = "Please contact system administrator (pinghanh@pharusdx.com, timmyhsieh@pharusdx.com)"
 
@@ -24,7 +20,7 @@ def parse_arguments() -> argparse.Namespace:
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
-    parser_init = subparsers.add_parser('init', help="Initialize the program and store the configuration file.")
+    parser_init = subparsers.add_parser('init', help="Initialize the program and store the configuration file")
     parser_init.add_argument(
         "--config", type=str, required=False, default=default_config, help="Path to store the configuration file."
     )
@@ -51,7 +47,7 @@ def parse_arguments() -> argparse.Namespace:
         "--fastq-dir",
         type=str,
         required=True,
-        help="Data directory with zipped FASTQ files (*.fastq.gz).",
+        help="Data directory with gzipped FASTQ files (*.fastq.gz).",
     )
     parser_upload.add_argument(
         "--config", type=str, required=False, default=default_config, help="Path to the Oncosweep™ configuration file."
@@ -68,7 +64,18 @@ def parse_arguments() -> argparse.Namespace:
         help="Experiment name.",
     )
 
-    parser_pred = subparsers.add_parser('pred', help="Initialize the program")
+    parser_qc = subparsers.add_parser('qc', help="Retrieve QC results (must complete quantification first)")
+    parser_qc.add_argument(
+        "--config", type=str, required=False, default=default_config, help="Path to the Oncosweep™ configuration file."
+    )
+    parser_qc.add_argument(
+        "--name",
+        type=str,
+        required=True,
+        help="Experiment name.",
+    )
+
+    parser_pred = subparsers.add_parser('pred', help="Perform prediction based on quantification results (Release Soon)")
     parser_pred.add_argument(
         "--config", type=str, required=False, default=default_config, help="Path to the Oncosweep™ configuration file."
     )
@@ -79,12 +86,12 @@ def parse_arguments() -> argparse.Namespace:
         help="Experiment name.",
     )
 
-    parser_list = subparsers.add_parser('list', help="Initialize the program")
+    parser_list = subparsers.add_parser('list', help="Show the information of experiments")
     parser_list.add_argument(
         "--config", type=str, required=False, default=default_config, help="Path to the Oncosweep™ configuration file."
     )
 
-    parser_download = subparsers.add_parser('download', help="Initialize the program")
+    parser_download = subparsers.add_parser('download', help="Download the prediction results (Release Soon)")
     parser_download.add_argument(
         "--config", type=str, required=False, default=default_config, help="Path to the Oncosweep™ configuration file."
     )
@@ -166,6 +173,7 @@ def upload_fastq(url: str, token: str, name: str, fastq_dir: str, chunk_size: in
 
                     uploaded += len(chunk)
                     progress_bar.update(len(chunk))
+                    part_number += 1
             n_uploaded_files += 1
     print(f"Upload FASTQ complete successfully ({n_uploaded_files}/{n_files}).")
 
@@ -181,7 +189,7 @@ def list_experiments(url: str, token: str) -> None:
     try:
         if response.status_code != 200:
             print(response.text)
-            print(f"Failed get experiments information. Status code: {response.status_code}. {contact_message}")
+            print(f"Failed to retrieve experiments information. Status code: {response.status_code}. {contact_message}")
             return
         
         response_data = response.json()
@@ -189,36 +197,52 @@ def list_experiments(url: str, token: str) -> None:
     except requests.exceptions.RequestException as e:
         print(f"An error occurred: {e}. {contact_message}")
         return
-
-def send_post_request(url: str, name: str, email: str, token: str) -> Optional[requests.Response]:
-    # Define the headers
+    
+def quantification(url: str, token: str, name: str, email: str) -> None:
     headers = {
         'Authorization': f'Bearer {token}',
         'Content-Type': 'application/json'
     }
-
-    # If no data is provided, use an empty dictionary
     data = {
         "name": name,
         "email": email
     }
     try:
-        # Send the POST request
         response = requests.post(url, headers=headers, json=data)
+
+        if response.status_code != 200:
+            print(response.text)
+            print(f"Failed to start quantification for experiment {name}. Status code: {response.status_code}. {contact_message}")
+            return
         
-        # Check if the request was successful
-        response.raise_for_status()
-        
-        # Print the response
-        print("Response status code:", response.status_code)
-        print("Response content:", response.text)
-        
-        return response
-    
+        response_data = response.json()
+        print(response_data['message'])
     except requests.exceptions.RequestException as e:
         print(f"An error occurred: {e}. {contact_message}")
-        return None
+        return
+    
+def get_qc_result(url: str, token: str, name: str, email: str) -> None:
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    }
+    data = {
+        "name": name,
+        "email": email
+    }
+    try:
+        response = requests.post(url, headers=headers, json=data)
 
+        if response.status_code != 200:
+            print(response.text)
+            print(f"Failed get quality control results for experiment {name}. Status code: {response.status_code}. {contact_message}")
+            return
+        
+        response_data = response.json()
+        print(response_data['qc'])
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}. {contact_message}")
+        return
 
 args = parse_arguments()
 if args.command.lower() == 'init':
@@ -234,6 +258,12 @@ else:
         upload_fastq(url=f"{config['url']}/api/upload", token=config['key'], name=experiment_name, fastq_dir=args.fastq_dir)
     if args.command.lower() == 'list':
         list_experiments(url=f"{config['url']}/api/list", token=config['key'])
+    elif args.command.lower() == 'quant':
+        quantification(url=f"{config['url']}/api/quant", name=args.name, email=config['email'], token=config['key'])
+    elif args.command.lower() == 'qc':
+        get_qc_result(url=f"{config['url']}/api/qc", name=args.name, email=config['email'], token=config['key'])
+
+
 
 
 #datasheet_s3_path = upload_fastq_to_s3(name, fastq_dir)
