@@ -53,12 +53,12 @@ python app.py list | column -ts $'\t' | less -S
 ### Perform Quantification
 Runs miRNA quantification on the uploaded data. A notification will be sent to the configured email address once the analysis is completed.
 ```
-python oncosweep.py quant --name <EXPERIMENT_NAME>
+python app.py quant --name <EXPERIMENT_NAME>
 ```
 
 ### Retrieve Quality Control Metrics
 ```
-python oncosweep.py qc --name <EXPERIMENT_NAME>
+python app.py qc --name <EXPERIMENT_NAME>
 ```
 
 ## Contact
