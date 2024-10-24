@@ -23,7 +23,7 @@ Before interacting with OncoSweep™, you must initialize the tool by providing 
 ```
 python app.py init --key <API_KEY> --url <PLATFORM_URL> --email <EMAIL>
 ```
-Please specify `http://oncosweep-us-northern-lights.pharusdx.com` as the `--url` for the current release. For the `--key`, please contact Ping-Han Hsieh (pinghanh@pharusdx.com) or Timmy Hsieh(timmyhsieh@pharusdx.com).
+Please specify `https://oncosweep-us-northern-lights.pharusdx.com` as the `--url` for the current release. For the `--key`, please contact Ping-Han Hsieh (pinghanh@pharusdx.com) or Timmy Hsieh(timmyhsieh@pharusdx.com).
 
 
 ## Analysis
