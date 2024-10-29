@@ -119,63 +119,64 @@ def read_config(config: str) -> dict[str, str]:
         return yaml.safe_load(file)
 
 def upload_fastq(url: str, token: str, name: str,email: str, fastq_dir: str, chunk_size: int = 10 * 1024 * 1024) -> None:
-    matching_files = os.listdir(fastq_dir)
+    matching_files = [f for f in os.listdir(fastq_dir) if f.endswith('.fastq.gz')]
     headers = {
         'Authorization': f'Bearer {token}',
     }
     n_files = 0
     n_uploaded_files = 0
-    for file_path in matching_files:
-        if file_path.endswith(".fastq.gz"):
-            file_path = os.path.realpath(os.path.join(fastq_dir, file_path))
-            file_name = os.path.basename(file_path)
-            file_size = os.path.getsize(file_path)
-            n_files += 1
-            with open(file_path, 'rb') as file, tqdm(
-                desc=file_name,
-                total=file_size,
-                unit='B',
-                unit_scale=True,
-                unit_divisor=1024,
-            ) as progress_bar:
-                upload_id = None
-                uploaded = 0
-                part_number = 1
-                while True:
-                    chunk = file.read(chunk_size)
-                    if not chunk:
-                        break
-                    is_last_chunk = 'true' if uploaded + len(chunk) >= file_size else 'false'
-                    data = {
-                            'filename': file_name,
-                            'offset': uploaded,
-                            'total_size': file_size,
-                            'part_number': part_number,
-                            'is_last_chunk': is_last_chunk,
-                            'name': name,
-                            'email': email
-                    }
-                    if upload_id:
-                        data['upload_id'] = upload_id
-                    response = requests.post(
-                        url,
-                        files={'file': (file_name, chunk)},
-                        headers=headers,
-                        data=data,
-                    )
-                    response_data = response.json()
-                    if 'upload_id' in response_data:
-                        upload_id = response_data['upload_id']
+    for index,file_path in enumerate(matching_files):
+        is_last_file = index == len(matching_files) - 1    
+        file_path = os.path.realpath(os.path.join(fastq_dir, file_path))
+        file_name = os.path.basename(file_path)
+        file_size = os.path.getsize(file_path)
+        n_files += 1
+        with open(file_path, 'rb') as file, tqdm(
+            desc=file_name,
+            total=file_size,
+            unit='B',
+            unit_scale=True,
+            unit_divisor=1024,
+        ) as progress_bar:
+            upload_id = None
+            uploaded = 0
+            part_number = 1
+            while True:
+                chunk = file.read(chunk_size)
+                if not chunk:
+                    break
+                is_last_chunk = 'true' if uploaded + len(chunk) >= file_size else 'false'
+                data = {
+                        'filename': file_name,
+                        'offset': uploaded,
+                        'total_size': file_size,
+                        'part_number': part_number,
+                        'is_last_chunk': is_last_chunk,
+                        'name': name,
+                        'email': email,
+                        'is_last_file':is_last_file
+                }
+                if upload_id:
+                    data['upload_id'] = upload_id
+                response = requests.post(
+                    url,
+                    files={'file': (file_name, chunk)},
+                    headers=headers,
+                    data=data,
+                )
+                response_data = response.json()
+                if 'upload_id' in response_data:
+                    upload_id = response_data['upload_id']
 
-                    if response.status_code != 200:
-                        print(response.text)
-                        print(f"Failed to upload chunk of {file_name} ({n_uploaded_files+1}/{n_files}). Status code: {response.status_code}. {contact_message}")
-                        return
+                if response.status_code != 200:
+                    print(response.text)
+                    print(f"Failed to upload chunk of {file_name} ({n_uploaded_files+1}/{n_files}). Status code: {response.status_code}. {contact_message}")
+                    return
 
-                    uploaded += len(chunk)
-                    progress_bar.update(len(chunk))
-                    part_number += 1
-            n_uploaded_files += 1
+                uploaded += len(chunk)
+                progress_bar.update(len(chunk))
+                part_number += 1
+        n_uploaded_files += 1
     print(f"Upload FASTQ complete successfully ({n_uploaded_files}/{n_files}).")
 
 def list_experiments(url: str, token: str) -> None:
