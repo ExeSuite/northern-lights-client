@@ -118,7 +118,7 @@ def read_config(config: str) -> dict[str, str]:
     with open(os.path.realpath(config), 'r') as file:
         return yaml.safe_load(file)
 
-def upload_fastq(url: str, token: str, name: str, fastq_dir: str, chunk_size: int = 10 * 1024 * 1024) -> None:
+def upload_fastq(url: str, token: str, name: str,email: str, fastq_dir: str, chunk_size: int = 10 * 1024 * 1024) -> None:
     matching_files = os.listdir(fastq_dir)
     headers = {
         'Authorization': f'Bearer {token}',
@@ -152,7 +152,8 @@ def upload_fastq(url: str, token: str, name: str, fastq_dir: str, chunk_size: in
                             'total_size': file_size,
                             'part_number': part_number,
                             'is_last_chunk': is_last_chunk,
-                            'name': name
+                            'name': name,
+                            'email': email
                     }
                     if upload_id:
                         data['upload_id'] = upload_id
@@ -255,7 +256,7 @@ else:
             if args.name
             else f'{datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")}-{uuid.uuid4()}'
         )
-        upload_fastq(url=f"{config['url']}/api/upload", token=config['key'], name=experiment_name, fastq_dir=args.fastq_dir)
+        upload_fastq(url=f"{config['url']}/api/upload", token=config['key'], name=experiment_name, email=config['email'], fastq_dir=args.fastq_dir)
     if args.command.lower() == 'list':
         list_experiments(url=f"{config['url']}/api/list", token=config['key'])
     elif args.command.lower() == 'quant':
