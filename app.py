@@ -53,7 +53,7 @@ def parse_arguments() -> argparse.Namespace:
         "--config", type=str, required=False, default=default_config, help="Path to the Oncosweep™ configuration file."
     )
 
-    parser_quant = subparsers.add_parser('quant', help="Perform Quantification")
+    parser_quant = subparsers.add_parser('quant', help="Perform quantification")
     parser_quant.add_argument(
         "--config", type=str, required=False, default=default_config, help="Path to the Oncosweep™ configuration file."
     )
@@ -75,7 +75,7 @@ def parse_arguments() -> argparse.Namespace:
         help="Experiment name.",
     )
 
-    parser_pred = subparsers.add_parser('pred', help="Perform prediction based on quantification results (Release Soon)")
+    parser_pred = subparsers.add_parser('predict', help="Perform prediction based on quantification results (must complete quantification first)")
     parser_pred.add_argument(
         "--config", type=str, required=False, default=default_config, help="Path to the Oncosweep™ configuration file."
     )
@@ -91,11 +91,11 @@ def parse_arguments() -> argparse.Namespace:
         "--config", type=str, required=False, default=default_config, help="Path to the Oncosweep™ configuration file."
     )
 
-    parser_download = subparsers.add_parser('download', help="Download the prediction results (Release Soon)")
-    parser_download.add_argument(
+    parser_report = subparsers.add_parser('report', help="Download the prediction report")
+    parser_report.add_argument(
         "--config", type=str, required=False, default=default_config, help="Path to the Oncosweep™ configuration file."
     )
-    parser_download.add_argument(
+    parser_report.add_argument(
         "--name",
         type=str,
         required=True,
@@ -179,16 +179,18 @@ def upload_fastq(url: str, token: str, name: str,email: str, fastq_dir: str, chu
         n_uploaded_files += 1
     print(f"Upload FASTQ complete successfully ({n_uploaded_files}/{n_files}).")
 
-def list_experiments(url: str, token: str) -> None:
+def list_experiments(url: str, email: str, token: str) -> None:
     headers = {
         'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
     }
-    response = requests.get(
-        url,
-        headers=headers,
-    )
+    data = {
+        "email": email
+    }
     
     try:
+        response = requests.post(url, headers=headers, json=data)
+
         if response.status_code != 200:
             print(response.text)
             print(f"Failed to retrieve experiments information. Status code: {response.status_code}. {contact_message}")
@@ -245,6 +247,52 @@ def get_qc_result(url: str, token: str, name: str, email: str) -> None:
     except requests.exceptions.RequestException as e:
         print(f"An error occurred: {e}. {contact_message}")
         return
+    
+def predict(url: str, token: str, name: str, email: str) -> None:
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    }
+    data = {
+        "name": name,
+        "email": email
+    }
+    try:
+        response = requests.post(url, headers=headers, json=data)
+
+        if response.status_code != 200:
+            print(response.text)
+            print(f"Failed to start prediction for experiment {name}. Status code: {response.status_code}. {contact_message}")
+            return
+        
+        response_data = response.json()
+        print(response_data['message'])
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}. {contact_message}")
+        return
+
+def get_prediction_result(url: str, token: str, name: str, email: str) -> None:
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    }
+    data = {
+        "name": name,
+        "email": email
+    }
+    try:
+        response = requests.post(url, headers=headers, json=data)
+
+        if response.status_code != 200:
+            print(response.text)
+            print(f"Failed get quality control results for experiment {name}. Status code: {response.status_code}. {contact_message}")
+            return
+        
+        response_data = response.json()
+        print(response_data['report'])
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}. {contact_message}")
+        return
 
 args = parse_arguments()
 if args.command.lower() == 'init':
@@ -259,14 +307,12 @@ else:
         )
         upload_fastq(url=f"{config['url']}/api/upload", token=config['key'], name=experiment_name, email=config['email'], fastq_dir=args.fastq_dir)
     if args.command.lower() == 'list':
-        list_experiments(url=f"{config['url']}/api/list", token=config['key'])
+        list_experiments(url=f"{config['url']}/api/list", email=config['email'], token=config['key'])
     elif args.command.lower() == 'quant':
         quantification(url=f"{config['url']}/api/quant", name=args.name, email=config['email'], token=config['key'])
     elif args.command.lower() == 'qc':
         get_qc_result(url=f"{config['url']}/api/qc", name=args.name, email=config['email'], token=config['key'])
-
-
-
-
-#datasheet_s3_path = upload_fastq_to_s3(name, fastq_dir)
-#send_post_request(url, name, email, token)
+    elif args.command.lower() == 'predict':
+        predict(url=f"{config['url']}/api/predict", name=args.name, email=config['email'], token=config['key'])
+    elif args.command.lower() == 'report':
+        get_prediction_result(url=f"{config['url']}/api/report", name=args.name, email=config['email'], token=config['key'])
