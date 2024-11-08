@@ -85,6 +85,14 @@ def parse_arguments() -> argparse.Namespace:
         required=True,
         help="Experiment name.",
     )
+    parser_pred.add_argument(
+        "--with_ca19_9",
+        action='store_true',
+        help="Whether to utilize CA19-9 for the prediction.",
+        default=False,
+        required=False
+    )
+
 
     parser_list = subparsers.add_parser('list', help="Show the information of experiments")
     parser_list.add_argument(
@@ -248,14 +256,15 @@ def get_qc_result(url: str, token: str, name: str, email: str) -> None:
         print(f"An error occurred: {e}. {contact_message}")
         return
     
-def predict(url: str, token: str, name: str, email: str) -> None:
+def predict(url: str, token: str, name: str, email: str, with_ca19_9: bool = False) -> None:
     headers = {
         'Authorization': f'Bearer {token}',
         'Content-Type': 'application/json'
     }
     data = {
         "name": name,
-        "email": email
+        "email": email,
+        "with_ca19_9": str(with_ca19_9)
     }
     try:
         response = requests.post(url, headers=headers, json=data)
@@ -313,6 +322,6 @@ else:
     elif args.command.lower() == 'qc':
         get_qc_result(url=f"{config['url']}/api/qc", name=args.name, email=config['email'], token=config['key'])
     elif args.command.lower() == 'predict':
-        predict(url=f"{config['url']}/api/predict", name=args.name, email=config['email'], token=config['key'])
+        predict(url=f"{config['url']}/api/predict", name=args.name, with_ca19_9=args.with_ca19_9, email=config['email'], token=config['key'])
     elif args.command.lower() == 'report':
         get_prediction_result(url=f"{config['url']}/api/report", name=args.name, email=config['email'], token=config['key'])
